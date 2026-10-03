@@ -11,6 +11,7 @@ stacks=(
   "kafka/docker-compose.dev.yaml"
   "spark/docker-compose.dev.yaml"
   "hadoop/docker-compose.dev.yaml"
+  "service-main/docker-compose.dev.yaml"
 )
 
 # host:port targets to validate once everything is up
@@ -28,14 +29,15 @@ targets=(
   "datanode:9864"
   "resourcemanager:8088"
   "nodemanager:8042"
+  "app:8000"
 )
 
 echo "--- Ensuring shared network '$network' exists"
 docker network inspect "$network" >/dev/null 2>&1 || docker network create "$network"
 
 for stack in "${stacks[@]}"; do
-  echo "--- docker compose -f $stack up -d"
-  docker compose -f "$root/$stack" up -d
+  echo "--- docker compose -f $stack up -d --build"
+  docker compose -f "$root/$stack" up -d --build
 done
 
 echo "--- Waiting for services to settle..."

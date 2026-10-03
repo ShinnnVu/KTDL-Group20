@@ -5,7 +5,7 @@ services:
     restart: always
     shm_size: 128mb
     environment:
-      POSTGRES_PASSWORD: 123456
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     networks:
       - ktdl-network
 

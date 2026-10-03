@@ -1,0 +1,14 @@
+services:
+  app:
+    build: .
+    hostname: app
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    networks:
+      - ktdl-network
+
+networks:
+  ktdl-network:
+    external: true

@@ -1,0 +1,31 @@
+[project]
+name = "ktdl-group20"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Khanh Nguyen Kieu Bao", email = "khanhnkb@nec.vn" }
+]
+requires-python = ">=3.12.10"
+dependencies = [
+    "fastapi>=0.142.2",
+    "hdfs>=2.7.3",
+    "kafka-python-ng>=2.2.3",
+    "psycopg2-binary>=2.9.13",
+    "pydantic-settings>=2.15.0",
+    "pymongo>=4.18.2",
+    "python-dotenv>=1.2.4",
+    "sqlalchemy>=2.1.3",
+    "uvicorn[standard]>=0.54.0",
+]
+
+[project.scripts]
+ktdl-group20 = "src:main"
+
+[build-system]
+requires = ["uv_build>=0.12.22,<0.13.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "src"
+module-root = ""
