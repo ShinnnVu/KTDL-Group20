@@ -16,7 +16,7 @@ services:
       HDFS_URL: ${HDFS_URL:-http://namenode:9870}
       HDFS_USER: ${HDFS_USER:-root}
     ports:
-      - "8000:8000"
+      - "${APP_PORT:-8005}:8000"
     networks:
       - ktdl-network
 
