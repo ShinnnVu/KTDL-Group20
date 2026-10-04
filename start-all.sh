@@ -8,9 +8,10 @@ network="ktdl-network"
 stacks=(
   "postgres/docker-compose.dev.yaml"
   "mongo/docker-compose.dev.yaml"
-  "kafka/docker-compose.dev.yaml"
-  "spark/docker-compose.dev.yaml"
+  # "kafka/docker-compose.dev.yaml" # kafka disabled: streaming path out of scope
   "hadoop/docker-compose.dev.yaml"
+  "spark/docker-compose.dev.yaml"
+  "airflow/docker-compose.dev.yaml"
   "service-main/docker-compose.dev.yaml"
 )
 
@@ -18,17 +19,13 @@ stacks=(
 targets=(
   "db:5432"
   "mongo:27017"
-  "kafka-0:9092"
-  "kafka-1:9092"
-  "kafka-2:9092"
-  "spark:7077"
-  "spark:8080"
-  "spark-worker:8081"
   "namenode:9000"
   "namenode:9870"
   "datanode:9864"
-  "resourcemanager:8088"
-  "nodemanager:8042"
+  "spark:7077"
+  "spark:8080"
+  "spark-worker:8081"
+  "airflow:8080"
   "app:8000"
 )
 
