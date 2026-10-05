@@ -28,6 +28,11 @@ This document provides a comprehensive technical architecture and reference guid
    - [Fleet & Utilization Tab (Asset Efficiency & Seat Layouts)](#tab-5-fleet--utilization--asset-efficiency)
    - [Pipeline Health Tab (Medallion Observability & Auditing)](#tab-6-pipeline-health--data-engineering-observability)
    - [Benchmark Acceptance Metrics (`2017-08-15 18:00:00+03`)](#benchmark-acceptance-metrics-at-final-cutoff)
+5. [Data Lineage & Governance with dbt](#5-data-lineage--governance-with-dbt)
+   - [dbt Architecture & Project Structure](#dbt-architecture--project-structure)
+   - [Medallion Lineage Graph (DAG)](#medallion-lineage-graph-dag)
+   - [Data Quality Testing & Declarative Constraints](#data-quality-testing--declarative-constraints)
+   - [Interactive dbt Docs UI on Port 8085](#interactive-dbt-docs-ui-on-port-8085)
 
 ---
 
@@ -124,6 +129,7 @@ All containers attach to an isolated user-defined Docker bridge network named `k
 | `spark-worker` | `apache/spark:3.5.9` | _None_ | 8081 | Spark Worker Web UI |
 | `airflow` | `ktdl-airflow:2.10.5` | **8083** | 8080 | Airflow Standalone Webserver & Scheduler UI |
 | `app` | `ktdl-service-main:latest` | **8000** | 8000 | FastAPI REST service & Interactive Dashboard |
+| `dbt-docs` | `ktdl-dbt-docs:1.0.0` | **8085** | 80 | Interactive dbt Data Lineage DAG & Documentation UI |
 
 ---
 
@@ -624,3 +630,78 @@ When the simulation and Medallion Lakehouse pipeline are executed up to the fina
 | **Active Airports** | **104** operational airports | `GET /api/airports` record count |
 | **Active Fleet Models** | **8** commercial aircraft models | `GET /api/marts/fleet` record count |
 | **Data Quarantine Anomalies** | **0** anomalies in standard baseline | `GET /api/runs` $\rightarrow$ `quarantine: 0` |
+
+---
+
+## 5. Data Lineage & Governance with dbt
+
+The platform incorporates **dbt (data build tool)** to provide enterprise-grade data transformation modeling, declarative testing, and interactive column-level data lineage across the Medallion architecture.
+
+### dbt Architecture & Project Structure
+
+The dbt project is located under `dbt/` and integrates with the Lakehouse storage and compute engines:
+
+```
+dbt/
+├── dbt_project.yml          # Core project configuration (airlines_lakehouse)
+├── profiles.yml             # Spark Thrift and offline DuckDB compiler profiles
+├── Dockerfile               # Ultra-lightweight Nginx container serving dbt docs
+├── docker-compose.dev.yaml  # dbt-docs service definition on host port 8085
+├── nginx.conf               # Nginx server configuration with gzip enabled
+├── generate_docs.sh         # Automated compilation & catalog generation script
+├── serve_docs.sh            # Local standalone documentation server
+├── models/
+│   ├── sources.yml          # Raw Bronze sources (8 tables with documentation & schema tests)
+│   ├── silver/              # Conformed Silver models & data quality constraints
+│   └── gold/                # Analytical Gold marts & dimensional models
+└── target/                  # Compiled documentation artifacts (index.html, manifest.json, catalog.json)
+```
+
+### Medallion Lineage Graph (DAG)
+
+The dbt DAG models establish an unbroken dependency graph connecting Bronze landing sources to Conformed Silver entities and Analytical Gold marts:
+
+```
+[Bronze Sources: lake.bronze.*]
+       │
+       ├──> silver_airports ─────────────────────────────┐
+       ├──> silver_aircrafts ──────────┐                 │
+       ├──> silver_seats ───────────┐  │                 │
+       ├──> silver_bookings         │  │                 │
+       ├──> silver_tickets          │  │                 │
+       │       │                    │  │                 │
+       │       ▼                    │  │                 │
+       ├──> silver_flights_enriched ┼──┼─────────────────┼─────────┐
+       │       │                    │  │                 │         │
+       ├──> silver_ticket_flights   │  │                 │         │
+       └──> silver_boarding_passes ─┼──┘                 │         │
+               │                    │                    │         │
+               ▼                    ▼                    ▼         ▼
+        [Gold Marts & Dimensions: lake.gold.*]
+        ├── gold_route_revenue (Route × Month × Class)
+        ├── gold_route_pareto (80/20 Revenue Concentration)
+        ├── gold_flight_occupancy (Flight-level Load Factor)
+        ├── gold_fleet (Aircraft Utilization & Hours)
+        ├── gold_delay_heatmap (Day-of-Week × Departure Hour)
+        ├── gold_delay_by_aircraft (Reliability by Model)
+        ├── gold_delay_by_route (>= 20 Arrived Flights Threshold)
+        ├── dim_airports (Airport Geodata & Departures)
+        └── dim_routes (Top 100 Flight Route Corridors)
+```
+
+Every model uses `source('bronze', ...)` or `ref(...)` to ensure dbt dynamically computes the full dependency tree, enabling column-level lineage exploration in the web UI.
+
+### Data Quality Testing & Declarative Constraints
+
+The dbt project declares **109 automated tests** across all models in `sources.yml`, `silver/schema.yml`, and `gold/schema.yml`:
+- **Uniqueness**: Primary key uniqueness validated on `book_ref`, `ticket_no`, `flight_id`, `airport_code`, `aircraft_code`, and Gold `_id` compound keys.
+- **Not Null**: Mandatory constraints enforced across operational timestamps, financial amounts, and dimensional foreign keys.
+- **Accepted Values**: Validates categorical business domains, e.g. `fare_conditions` in `['Economy', 'Comfort', 'Business']` and flight `status` in `['On Time', 'Delayed', 'Departed', 'Arrived', 'Scheduled', 'Cancelled']`.
+- **Relationships & Referential Integrity**: Validates that ticket flights reference valid tickets and flights, and boarding passes correspond to valid physical aircraft seats.
+
+### Interactive dbt Docs UI on Port 8085
+
+The documentation site is hosted as an independent microservice:
+- **Live Service**: `dbt-docs` runs as an ultra-lightweight Nginx container (serving `dbt/target/`) on port **`8085`**.
+- **Interactive Lineage Exploration**: Evaluators can open `http://localhost:8085` and click the **Lineage Graph** icon to inspect the interactive DAG, trace upstream data sources, examine column transformations, and view compiled SQL.
+- **Direct Dashboard Integration**: The main analytics dashboard (`http://localhost:8000`) includes a prominent **📊 Data Lineage (dbt docs) ↗** link in the header, bridging business analytics with data engineering governance.
